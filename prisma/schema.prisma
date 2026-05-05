@@ -15,17 +15,27 @@ datasource db {
 model User {
   id    String @id @default(cuid())
   email String @unique
-
-  document Document[]
 }
 
 model Document {
-  id        String   @id @default(cuid())
-  title     String
-  content   Json
-  ownerId   String
-  owner     User     @relation(fields: [ownerId], references: [id])
-  createdAt DateTime @default(now())
+  id          String       @id @default(cuid())
+  title       String
+  content     Json
+  ownerId     String
+  createdAt   DateTime     @default(now())
+
+  attachments Attachment[]
+}
+
+model Attachment {
+  id          String   @id @default(cuid())
+  documentId  String
+  fileName    String
+  fileType    String
+  content     Bytes?
+  createdAt   DateTime @default(now())
+
+  document    Document @relation(fields: [documentId], references: [id])
 }
 
 model DocumentAccess {
