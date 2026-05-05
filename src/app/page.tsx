@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 export default function Home() {
   const [docs, setDocs] = useState<any[]>([]);
@@ -14,25 +14,43 @@ export default function Home() {
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [sharingDoc, setSharingDoc] = useState<any>(null);
+  const [users, setUsers] = useState<any[]>([]);
+  const [shareRole, setShareRole] = useState<Record<string, string>>({});
+  const [sharing, setSharing] = useState(false);
+  const [sharedWith, setSharedWith] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const router = useRouter();
 
+  useEffect(() => {
+    const user = localStorage.getItem("user");
+
+    if (!user) {
+      router.replace("/login");
+    }
+    setCurrentUser(JSON.parse(user!));
+  }, []);
+
   const fetchDocs = async () => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+
     setLoading(true);
-    const res = await fetch("/api/documents");
+    const res = await fetch(`/api/documents?userId=${user.id}`);
     const data = await res.json();
     setDocs(data);
     setLoading(false);
   };
 
   const handleFileUpload = async (file: File) => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
     const formData = new FormData();
 
     formData.append("file", file);
-    formData.append("ownerId", "user_1");
+    formData.append("ownerId", user.id);
 
     await fetch("/api/documents/upload", {
       method: "POST",
-      body: formData, 
+      body: formData,
     });
 
     await fetchDocs();
@@ -51,11 +69,13 @@ export default function Home() {
 
   const createDoc = async () => {
     if (!title.trim()) return;
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+
     setCreating(true);
     const res = await fetch("/api/documents", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: title.trim() }),
+      body: JSON.stringify({ title: title.trim(), ownerId: user.id }),
     });
     const doc = await res.json();
     setCreating(false);
@@ -85,6 +105,71 @@ export default function Home() {
   const cancelRename = () => {
     setRenamingId(null);
     setRenameValue("");
+  };
+
+  const openShare = async (e: React.MouseEvent, doc: any) => {
+    e.stopPropagation();
+    setSharingDoc(doc);
+
+    const [usersRes, accessRes] = await Promise.all([
+      fetch("/api/user"),
+      fetch(`/api/documents/${doc.id}/access`),
+    ]);
+
+    const allUsers = await usersRes.json();
+    const existing = await accessRes.json();
+
+    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+    setUsers(allUsers.filter((u: any) => u.id !== currentUser.id));
+
+    const roleMap: Record<string, string> = {};
+    existing.forEach((a: any) => {
+      roleMap[a.userId] = a.role;
+    });
+    setShareRole(roleMap);
+    setSharedWith(existing.map((a: any) => a.userId));
+  };
+
+  const closeShare = () => {
+    setSharingDoc(null);
+    setUsers([]);
+    setShareRole({});
+    setSharedWith([]);
+  };
+
+  const toggleUser = (userId: string) => {
+    setSharedWith((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId],
+    );
+    setShareRole((prev) => ({
+      ...prev,
+      [userId]: prev[userId] || "viewer",
+    }));
+  };
+
+  const setRole = (userId: string, role: string) => {
+    setShareRole((prev) => ({ ...prev, [userId]: role }));
+  };
+
+  const commitShare = async () => {
+    if (!sharingDoc) return;
+    setSharing(true);
+
+    await fetch(`/api/documents/${sharingDoc.id}/access`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        sharedWith.map((userId) => ({
+          userId,
+          role: shareRole[userId] || "viewer",
+        })),
+      ),
+    });
+
+    setSharing(false);
+    closeShare();
   };
 
   useEffect(() => {
@@ -226,21 +311,42 @@ export default function Home() {
                   maxLength={80}
                 />
               ) : (
-                <span
-                  className="text-[#666] text-lg font-normal transition-colors duration-100 group-hover:text-[#1a1a1a]"
-                  style={{ fontFamily: "'Instrument Serif', serif" }}
-                >
-                  {doc.title || "Untitled Document"}
-                </span>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span
+                    className="text-[#666] text-lg font-normal transition-colors duration-100 group-hover:text-[#1a1a1a] truncate"
+                    style={{ fontFamily: "'Instrument Serif', serif" }}
+                  >
+                    {doc.title || "Untitled Document"}
+                  </span>
+                  <span
+                    className={`shrink-0 text-[9px] tracking-widest uppercase px-1.5 py-0.5 border ${
+                      doc.ownerId === currentUser?.id
+                        ? "text-[#a07850] border-[#e8d5bc] bg-[#fdf9f5]"
+                        : "text-[#bbb] border-[#e0dbd3] bg-white"
+                    }`}
+                  >
+                    {doc.ownerId === currentUser?.id ? "owner" : "member"}
+                  </span>
+                </div>
               )}
 
               <div className="flex items-center gap-2">
-                <button
-                  onClick={(e) => startRename(e, doc)}
-                  className="opacity-0 group-hover:opacity-100 text-[#ccc] hover:text-[#a07850] text-xs tracking-widest uppercase transition-all duration-100 bg-transparent border-none cursor-pointer font-mono px-1"
-                >
-                  rename
-                </button>
+                {doc.ownerId === currentUser?.id && (
+                  <>
+                    <button
+                      onClick={(e) => openShare(e, doc)}
+                      className="opacity-0 group-hover:opacity-100 text-[#ccc] hover:text-[#a07850] text-xs tracking-widest uppercase transition-all duration-100 bg-transparent border-none cursor-pointer font-mono px-1"
+                    >
+                      share
+                    </button>
+                    <button
+                      onClick={(e) => startRename(e, doc)}
+                      className="opacity-0 group-hover:opacity-100 text-[#ccc] hover:text-[#a07850] text-xs tracking-widest uppercase transition-all duration-100 bg-transparent border-none cursor-pointer font-mono px-1"
+                    >
+                      rename
+                    </button>
+                  </>
+                )}
                 <span className="text-[#ccc] text-sm transition-all duration-100 group-hover:text-[#a07850] group-hover:translate-x-1">
                   →
                 </span>
@@ -306,6 +412,107 @@ export default function Home() {
               className="px-5 py-2.5 font-mono text-[11px] tracking-[0.08em] uppercase bg-[#1a1a1a] text-[#f5f2ed] border-none cursor-pointer transition-all hover:bg-[#a07850] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {creating ? "Creating…" : "Create →"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Share modal */}
+      <div
+        className={`fixed inset-0 z-50 flex items-center justify-center transition-opacity duration-200 ${
+          sharingDoc
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
+        }`}
+        style={{
+          background: "rgba(245,242,237,0.75)",
+          backdropFilter: "blur(4px)",
+        }}
+        onClick={(e) => e.target === e.currentTarget && closeShare()}
+      >
+        <div
+          className={`bg-white border border-[#e0dbd3] p-10 w-full max-w-md shadow-[0_8px_40px_rgba(0,0,0,0.08)] transition-transform duration-200 ${sharingDoc ? "translate-y-0" : "translate-y-3"}`}
+        >
+          <p className="text-[10px] tracking-[0.2em] uppercase text-[#aaa] mb-1.5">
+            Share Document
+          </p>
+          <h2
+            className="text-[1.6rem] font-normal text-[#1a1a1a] mb-1"
+            style={{ fontFamily: "'Instrument Serif', serif" }}
+          >
+            {sharingDoc?.title || "Untitled"}
+          </h2>
+          <p className="text-[11px] text-[#bbb] tracking-wide mb-7">
+            Select users and assign their access level.
+          </p>
+
+          {/* User list */}
+          <div className="flex flex-col gap-2 max-h-64 overflow-y-auto mb-6">
+            {users.length === 0 && (
+              <p className="text-[11px] text-[#ccc] tracking-widest uppercase text-center py-6">
+                No other users found
+              </p>
+            )}
+            {users.map((u) => {
+              const selected = sharedWith.includes(u.id);
+              return (
+                <div
+                  key={u.id}
+                  className={`flex items-center justify-between px-4 py-3 border transition-all duration-100 cursor-pointer ${
+                    selected
+                      ? "border-[#a07850] bg-[#fdf9f5]"
+                      : "border-[#e0dbd3] bg-white hover:border-[#ccc]"
+                  }`}
+                  onClick={() => toggleUser(u.id)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-1.5 h-1.5 rounded-full transition-colors ${selected ? "bg-[#a07850]" : "bg-[#e0dbd3]"}`}
+                    />
+                    <span className="text-[13px] text-[#1a1a1a] font-mono">
+                      {u.email}
+                    </span>
+                  </div>
+
+                  {/* Role toggle — only when selected */}
+                  {selected && (
+                    <div
+                      className="flex gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {["viewer", "editor"].map((role) => (
+                        <button
+                          key={role}
+                          onClick={() => setRole(u.id, role)}
+                          className={`px-2.5 py-1 text-[10px] tracking-widest uppercase border transition-all cursor-pointer font-mono ${
+                            shareRole[u.id] === role
+                              ? "bg-[#1a1a1a] text-[#f5f2ed] border-[#1a1a1a]"
+                              : "bg-transparent text-[#999] border-[#e0dbd3] hover:border-[#a07850] hover:text-[#a07850]"
+                          }`}
+                        >
+                          {role}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={closeShare}
+              className="px-4 py-2.5 font-mono text-[11px] tracking-[0.08em] uppercase bg-transparent border border-[#e0dbd3] text-[#999] cursor-pointer transition-all hover:border-[#ccc] hover:text-[#666]"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={commitShare}
+              disabled={sharing}
+              className="px-5 py-2.5 font-mono text-[11px] tracking-[0.08em] uppercase bg-[#1a1a1a] text-[#f5f2ed] border-none cursor-pointer transition-all hover:bg-[#a07850] disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {sharing ? "Saving…" : "Save Access →"}
             </button>
           </div>
         </div>

@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -15,16 +9,25 @@ datasource db {
 model User {
   id    String @id @default(cuid())
   email String @unique
+  password String
+  // documents owned by user
+  ownedDocuments Document[] @relation("OwnedDocuments")
+
+  // documents shared with user
+  sharedDocuments DocumentAccess[]
 }
 
 model Document {
-  id          String       @id @default(cuid())
-  title       String
-  content     Json
-  ownerId     String
-  createdAt   DateTime     @default(now())
+  id        String   @id @default(cuid())
+  title     String
+  content   Json
+  ownerId   String
+  createdAt DateTime @default(now())
 
+  // relations
+  owner       User @relation("OwnedDocuments", fields: [ownerId], references: [id])
   attachments Attachment[]
+  sharedWith  DocumentAccess[]
 }
 
 model Attachment {
@@ -35,12 +38,15 @@ model Attachment {
   content     Bytes?
   createdAt   DateTime @default(now())
 
-  document    Document @relation(fields: [documentId], references: [id])
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 }
 
 model DocumentAccess {
-  id         String @id @default(cuid())
+  id         String   @id @default(cuid())
   documentId String
   userId     String
-  role       String
+  role       String // "viewer" | "editor"
+
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

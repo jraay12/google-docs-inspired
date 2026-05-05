@@ -15,6 +15,7 @@ export default function DocumentPage() {
   const [saved, setSaved] = useState(false);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [role, setRole] = useState<"owner" | "editor" | "viewer" | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -99,9 +100,19 @@ export default function DocumentPage() {
         setContent(docData.content ?? "");
         setSaved(true);
 
+        // Resolve role
+        const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+        if (docData.ownerId === currentUser.id) {
+          setRole("owner");
+        } else {
+          const accessRes = await fetch(`/api/documents/${id}/access`);
+          const accessList = await accessRes.json();
+          const mine = accessList.find((a: any) => a.userId === currentUser.id);
+          setRole(mine?.role ?? "viewer");
+        }
+
         const attRes = await fetch(`/api/documents/${id}/attachments`);
         const attData = await attRes.json().catch(() => []);
-
         setAttachments(attData);
       } catch (err) {
         console.error("Init load failed:", err);
@@ -175,10 +186,19 @@ export default function DocumentPage() {
 
         {/* Editor */}
         <div className="flex-1 flex flex-col">
+          {role === "viewer" && (
+            <div className="flex items-center gap-2 mb-3 px-3 py-2 border border-[#e8d5bc] bg-[#fdf9f5]">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#a07850] shrink-0" />
+              <p className="text-[10px] tracking-widest uppercase text-[#a07850]">
+                View only — you do not have permission to edit this document
+              </p>
+            </div>
+          )}
           <Editor
             content={content}
             onChange={setContent}
             onImport={() => document.getElementById("importFile")?.click()}
+            readOnly={role === "viewer"}
           />
           <div className="flex justify-between items-center mt-3">
             <span className="text-[10px] text-[#ccc] tracking-[0.08em]">
@@ -204,13 +224,17 @@ export default function DocumentPage() {
                   : `${attachments.length} file${attachments.length !== 1 ? "s" : ""}`}
               </p>
             </div>
-            <button
-              onClick={() => document.getElementById("attachmentFile")?.click()}
-              disabled={uploadingAttachment}
-              className="flex items-center gap-2 bg-[#1a1a1a] text-[#f5f2ed] px-4 py-2 text-[11px] font-medium tracking-widest uppercase transition-all duration-150 hover:bg-[#a07850] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer border-none font-mono"
-            >
-              {uploadingAttachment ? "Uploading…" : "+ Attach File"}
-            </button>
+            {(role === "editor" || role === "owner") && (
+              <button
+                onClick={() =>
+                  document.getElementById("attachmentFile")?.click()
+                }
+                disabled={uploadingAttachment}
+                className="flex items-center gap-2 bg-[#1a1a1a] text-[#f5f2ed] px-4 py-2 text-[11px] font-medium tracking-widest uppercase transition-all duration-150 hover:bg-[#a07850] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer border-none font-mono"
+              >
+                {uploadingAttachment ? "Uploading…" : "+ Attach File"}
+              </button>
+            )}
           </div>
 
           {attachments.length > 0 && (
