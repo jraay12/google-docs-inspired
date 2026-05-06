@@ -40,6 +40,14 @@ export default function Editor({
   onImport,
   readOnly,
 }: Props) {
+  const getSafeContent = (content: any) => {
+    if (!content) return "<p></p>";
+    if (typeof content === "object" && Object.keys(content).length === 0)
+      return "<p></p>";
+    if (typeof content === "string" && content.trim() === "") return "<p></p>";
+    return content;
+  };
+
   const editor = useEditor({
     extensions: [StarterKit, Underline],
     content: content || "<p></p>",
@@ -51,8 +59,10 @@ export default function Editor({
   });
 
   useEffect(() => {
-    if (editor && content && editor.getHTML() !== content) {
-      editor.commands.setContent(content);
+    if (!editor) return;
+    const safe = getSafeContent(content);
+    if (editor.getHTML() !== safe) {
+      editor.commands.setContent(safe);
     }
   }, [content, editor]);
 

@@ -210,20 +210,38 @@ export default function Home() {
             </em>
           </h1>
         </div>
-        <div className="flex item-center gap-3">
-          <button
-            onClick={openModal}
-            className="flex items-center gap-2 bg-[#1a1a1a] text-[#f5f2ed] px-5 py-3 text-[11px] font-medium tracking-widest uppercase transition-all duration-150 hover:bg-[#a07850] hover:-translate-y-px active:translate-y-0 cursor-pointer border-none"
-          >
-            <span className="text-lg font-light leading-none">+</span>
-            New Document
-          </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 bg-transparent border border-[#e0dbd3] text-[#1a1a1a] px-5 py-3 text-[11px] font-medium tracking-widest uppercase transition-all duration-150 hover:border-[#a07850] hover:text-[#a07850]"
-          >
-            Upload File
-          </button>
+        <div className="flex flex-col items-end gap-3">
+          {/* User row */}
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-[#aaa] tracking-wide font-mono">
+              {currentUser?.email}
+            </span>
+            <button
+              onClick={() => {
+                localStorage.clear();
+                router.replace("/login");
+              }}
+              className="flex items-center gap-2 text-[10px] tracking-[0.15em] uppercase font-mono text-[#999] border border-[#e0dbd3] px-3 py-1.5 hover:border-[#c0392b] hover:text-[#c0392b] transition-all duration-150 bg-transparent cursor-pointer"
+            >
+              <span className="text-[13px] leading-none">⎋</span>
+              Sign out
+            </button>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={openModal}
+              className="flex items-center gap-2 bg-[#1a1a1a] text-[#f5f2ed] px-5 py-3 text-[11px] font-medium tracking-widest uppercase transition-all duration-150 hover:bg-[#a07850] hover:-translate-y-px active:translate-y-0 cursor-pointer border-none"
+            >
+              <span className="text-lg font-light leading-none">+</span>
+              New Document
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 bg-transparent border border-[#e0dbd3] text-[#1a1a1a] px-5 py-3 text-[11px] font-medium tracking-widest uppercase transition-all duration-150 hover:border-[#a07850] hover:text-[#a07850]"
+            >
+              Upload File
+            </button>
+          </div>
         </div>
       </header>
 

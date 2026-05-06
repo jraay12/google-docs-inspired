@@ -1,187 +1,129 @@
-# Workspace — Document Editor
+# 📄 Google Docs Inspired
 
-A collaborative document editor built with Next.js, Prisma, and TipTap. Supports rich-text editing, file attachments, document sharing with role-based access, and user authentication.
-
----
-
-## Tech Stack
-
-- **Framework** — Next.js 14 (App Router)
-- **Database ORM** — Prisma
-- **Editor** — TipTap (StarterKit + Underline extension)
-- **Styling** — Tailwind CSS
-- **Auth** — bcrypt (manual session via localStorage)
-- **Fonts** — Instrument Serif, DM Mono (Google Fonts)
+A collaborative document editor built with Next.js, Tiptap, Prisma, and MySQL — inspired by Google Docs.
 
 ---
 
 ## Prerequisites
 
-- Node.js 18+
-- A running MySQL database
+Before you begin, make sure you have the following installed:
+
+- [Node.js](https://nodejs.org/) (v18 or higher)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+### Verify Docker is running
+
+```bash
+docker info
+```
+
+If Docker is running, you'll see system information printed in the terminal. If you see an error like `Cannot connect to the Docker daemon`, open Docker Desktop and wait for it to fully start before proceeding.
 
 ---
 
 ## Getting Started
 
-### 1. Clone the repository
+### 1. Clone the Repository
 
 ```bash
-git clone <your-repo-url>
-cd <your-repo-name>
+git clone https://github.com/jraay12/google-docs-inspired.git
+cd google-docs-inspired
 ```
 
-### 2. Install dependencies
+### 2. Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 3. Configure environment variables
+### 3. Start the Database
 
-Create a `.env` file in the root of the project:
-
-```env
-DATABASE_URL="mysql://USER:PASSWORD@HOST:PORT/DATABASE_NAME"
-```
-
-Replace `USER`, `PASSWORD`, `HOST`, `PORT`, and `DATABASE_NAME` with your MySQL credentials.
-
-### 4. Run database migrations
+Spin up the MySQL database and phpMyAdmin using Docker Compose:
 
 ```bash
-npx prisma migrate dev --name init
+docker compose up -d
 ```
 
-This creates all required tables: `User`, `Document`, `Attachment`, `DocumentAccess`.
+This starts two services in the background:
 
-### 5. Generate the Prisma client
+- **MySQL** — the database used by the app
+- **phpMyAdmin** — a web UI to inspect and manage the database
+
+### 4. Verify the Database is Up
+
+Open your browser and go to:
+
+```
+http://localhost:8080
+```
+
+You should see the **phpMyAdmin** login page. Log in using the credentials defined in your `docker-compose.yml` (typically `root` / `root` or as configured). Confirm the database is accessible before proceeding to the next step.
+
+> ⚠️ Do **not** run the migration until phpMyAdmin loads successfully. If the database isn't up yet, wait a few seconds and refresh.
+
+### 5. Run Database Migrations
 
 ```bash
-npx prisma generate
+npx prisma migrate deploy
 ```
 
-### 6. Start the development server
+This applies all pending migrations to set up the database schema.
+
+### 6. Start the Development Server
 
 ```bash
 npm run dev
 ```
 
-The app will be available at [http://localhost:3000](http://localhost:3000).
-
----
-
-## Project Structure
+### 7. Open the App
 
 ```
-app/
-├── login/             # Login page
-├── register/          # Register page
-├── documents/
-│   └── [id]/          # Document editor page
-├── api/
-│   ├── login/         # POST — authenticate user
-│   ├── register/      # POST — create user
-│   ├── users/         # GET — list all users
-│   └── documents/
-│       ├── route.ts          # GET (list), POST (create)
-│       ├── upload/route.ts   # POST — upload file as new document
-│       └── [id]/
-│           ├── route.ts              # GET, PATCH
-│           ├── attachments/route.ts  # GET, POST
-│           └── access/route.ts       # GET, POST, PUT
-src/
-├── components/
-│   └── Editor.tsx     # TipTap rich-text editor component
-└── lib/
-    └── prisma.ts      # Prisma client singleton
+http://localhost:3000
 ```
 
 ---
 
-## Features
+## File Restrictions
 
-### Authentication
-- Register and login with email and password
-- Passwords are hashed with bcrypt
-- Session is stored in `localStorage` as a user object
+The app enforces the following file type rules:
 
-### Documents
-- Create documents with a title via a modal
-- Auto-save content with a 500ms debounce
-- Rich-text editing: **Bold**, *Italic*, Underline, H1/H2/H3, Bullet lists, Numbered lists
-- Rename documents inline from the document list
-- Character count displayed below the editor
+### 📥 Import / Upload Document (for editing)
 
-### File Upload
-- **Upload a file** (`.txt`, `.md`, `.docx`) from the home page to create a new document
-- **Import into editor** — append a `.txt` or `.md` file's content into the current draft via the toolbar
-- **Attach files** to a document — stored in the database and listed below the editor
+Only the following formats are accepted when importing a file as a document:
 
-### Sharing & Access Control
-- Share documents with other registered users
-- Assign roles: **Editor** (can edit) or **Viewer** (read-only)
-- Viewers see a notice banner and cannot type in the editor
-- Share button is only visible to the document owner
-- Documents show an **owner** or **member** badge in the list
+| Format | Extension |
+|--------|-----------|
+| Plain Text | `.txt` |
+| Markdown | `.md` |
+
+> ❌ `.docx` files are **not** supported for import. The editor only accepts plain text and markdown content.
+
+### 📎 Upload Attachment (inside a document)
+
+Attachments support **any file type** — you can attach images, PDFs, ZIPs, spreadsheets, or any other file to a document.
 
 ---
 
-## Supported File Types
+## Tech Stack
 
-| Feature | Accepted Types |
-|---|---|
-| Upload as new document | `.txt`, `.md`, `.docx` |
-| Import into editor | `.txt`, `.md` |
-| Attach to document | Any file type |
-
----
-
-## Database Schema
-
-```prisma
-model User {
-  id          String  @id @default(cuid())
-  email       String  @unique
-  password    String
-}
-
-model Document {
-  id          String       @id @default(cuid())
-  title       String
-  content     Json
-  ownerId     String
-  createdAt   DateTime     @default(now())
-  attachments Attachment[]
-}
-
-model Attachment {
-  id          String   @id @default(cuid())
-  documentId  String
-  fileName    String
-  fileType    String
-  content     Bytes?
-  createdAt   DateTime @default(now())
-  document    Document @relation(fields: [documentId], references: [id])
-}
-
-model DocumentAccess {
-  id         String @id @default(cuid())
-  documentId String
-  userId     String
-  role       String  // "viewer" | "editor"
-}
-```
+- **Next.js** — React framework
+- **Tiptap** — Rich text editor
+- **Prisma** — ORM for database access
+- **MySQL** — Relational database (via Docker)
+- **phpMyAdmin** — Database management UI (via Docker)
 
 ---
 
-## Scripts
+## Troubleshooting
 
-| Command | Description |
-|---|---|
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
-| `npm start` | Start production server |
-| `npx prisma studio` | Open Prisma database GUI |
-| `npx prisma migrate dev` | Run migrations |
-| `npx prisma generate` | Regenerate Prisma client |
+**`docker info` shows an error**
+→ Open Docker Desktop and wait for it to fully initialize before running any commands.
+
+**phpMyAdmin not loading at `localhost:8080`**
+→ Run `docker compose ps` to check if the containers are running. If not, re-run `docker compose up -d`.
+
+**Prisma migration fails**
+→ Make sure the database container is healthy before running `npx prisma migrate deploy`. Check with `docker compose logs db`.
+
+**App won't start**
+→ Ensure all dependencies are installed with `npm install` and that the database is running before starting the dev server.
