@@ -1,5 +1,18 @@
 services:
 
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: google-docs-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./.env
+    depends_on:
+      db:
+        condition: service_healthy
   db:
     image: mysql:8.0
     container_name: google-docs-db

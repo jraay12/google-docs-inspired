@@ -23,10 +23,15 @@ If Docker is running, you'll see system information printed in the terminal. If 
 
 ## Getting Started
 
-### 1. Clone the Repository
+### 1. Download the Source Code
+
+Download the project folder from Google Drive, then extract it to your preferred location.
+
+> ℹ️ The `node_modules` folder has been excluded from the upload to keep the file size small. You will install dependencies in the next step.
+
+Once extracted, open a terminal and navigate into the project folder:
 
 ```bash
-git clone https://github.com/jraay12/google-docs-inspired.git
 cd google-docs-inspired
 ```
 
@@ -111,6 +116,15 @@ Attachments support **any file type** — you can attach images, PDFs, ZIPs, spr
 - **Prisma** — ORM for database access
 - **MySQL** — Relational database (via Docker)
 - **phpMyAdmin** — Database management UI (via Docker)
+
+---
+
+## AI Tools Used
+
+This project was built with the assistance of the following AI tools:
+
+- **ChatGPT** — Used for brainstorming, architecture decisions, and general development guidance
+- **Claude Code** — Used for code generation, debugging, and implementation assistance
 
 ---
 
